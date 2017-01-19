@@ -717,4 +717,16 @@ business-improvement-areas-bias:
     shp: Shapefiles/PL_BIA.shp
     shp.xml: Shapefiles/PL_BIA.shp.xml
     shx: Shapefiles/PL_BIA.shx
-
+urban-buildings:
+  csv: Tables/SAM_URBAN_buildings.csv
+  dwg: DWG/SAM_URBAN_buildings.dwg
+  kmz: KMZ/SAM_URBAN_buildings.kmz
+  shp:
+    dbf: Shapefiles/SAM_URBAN_buildings.dbf
+    prj: Shapefiles/SAM_URBAN_buildings.prj
+    sbn: Shapefiles/SAM_URBAN_buildings.sbn
+    sbx: Shapefiles/SAM_URBAN_buildings.sbx
+    shp: Shapefiles/SAM_URBAN_buildings.shp
+    shp.xml: Shapefiles/SAM_URBAN_buildings.shp.xml
+    shx: Shapefiles/SAM_URBAN_buildings.shx
+    xml: XML/SAM_URBAN_buildings.xml
