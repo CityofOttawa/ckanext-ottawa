@@ -5,24 +5,27 @@ Usage:
         (-m MAPPING)
         (-r CKAN_URL)
         (-a APIKEY)
+        [-l LOG]
         [-d DATASET]
         [--force]
         [--dry-run]
 
 Options:
-    -g --gis        Location of the GIS resource repo to import from
-    -m --mapping    Location of the YAML file where resource mappings are stored
-    -r --remote     CKAN URL
-    -a --apikey     CKAN API Key to use when importing
-    -d --dataset    If you want to import a single dataset
-    --dry-run       Show what would be imported but don't actually import
-    --force         Update resource whether it needs updating or not
+    -g --gis                Location of the GIS resource repo to import from
+    -m --mapping            Location of the YAML file where resource mappings are stored
+    -r --remote             CKAN URL
+    -a --apikey             CKAN API Key to use when importing
+    -d --dataset            If you want to import a single dataset
+    -l LOG --logfile LOG    Path to where you'd like the logs to be output [default: gis_import.log]
+    --dry-run               Show what would be imported but don't actually import
+    --force                 Update resource whether it needs updating or not      
 """
 
 import os
+import zipfile
+import logging
 import yaml
 import ckanapi
-import zipfile
 import requests
 
 from docopt import docopt
@@ -40,6 +43,8 @@ ckan = ckanapi.RemoteCKAN(arguments['CKAN_URL'], apikey=arguments['APIKEY'])
 base_import_url = arguments['GIS_REPO']
 force = arguments['--force']
 debug = arguments['--dry-run']
+
+logging.basicConfig(filename=arguments['--logfile'], level=logging.INFO)
 
 def download_temp_file(resource_path, file_name):
         r = requests.get(resource_path, stream=True)
@@ -64,7 +69,11 @@ def upload_file_to_resource(resource, file_object):
         filename = "{0}.{1}.zip".format(resource['name'], resource['format'])
     resource['upload'] = (filename, file_object)
     resource['last_modified'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
-    ckan.action.resource_update(**resource)
+    
+    try:
+        ckan.action.resource_update(**resource)
+    except ckanapi.errors.CKANAPIError as e:
+        logging.error(e.message)
 
 def import_shapefile(resource, mapping):
     shape_destination_dir = os.path.join('temp_data', resource['name'] + '_shp')
@@ -100,21 +109,21 @@ def get_import_url(resource, mapping):
 
 def get_import_file_date(import_file):
     head = requests.head(import_file)
-    
+
     if head.status_code == 404:
-        print "Resource is missing: {0}".format(import_file)
+        logging.warning("Resource is missing: {0}".format(import_file))
         return None
-    
+
     try:
         date_modified = parse(head.headers['last-modified']).replace(tzinfo=None)
     except KeyError as e:
-        print "Could not determine last modified date of {0}".format(import_file)
-    
+        logging.error("Could not determine last modified date of {0}".format(import_file))
+
     return date_modified
 
 def out_of_date(resource, import_file):
     date_modified = get_import_file_date(import_file)
-    
+
     #Date modified is usually None when the file is missing from GIS repo
     if date_modified is None:
         return False
@@ -132,7 +141,7 @@ def out_of_date(resource, import_file):
         return False
 
 def perform_import(resource, mapping):
-    print "updating resource {0}:{1}".format(resource['name'], resource['format'])
+    logging.info("updating resource {0}:{1}".format(resource['name'], resource['format']))
 
     if resource['format'].lower() == 'shp':
         import_shapefile(resource, mapping)
@@ -146,7 +155,7 @@ def main_job(dataset, resources_mapping):
     try:
         package = ckan.action.package_show(id=dataset)
     except ckanapi.errors.NotFound:
-        print "dataset not found: {0}".format(dataset)
+        logging.error("dataset not found: {0}".format(dataset))
         return
 
     existing_formats = [res['format'].lower() for res in package['resources']]
@@ -168,7 +177,7 @@ def main_job(dataset, resources_mapping):
         import_file = get_import_url(resource, resources_mapping)
         if out_of_date(resource, import_file):
             if debug:
-                print "Would refresh {0}".format(resource['url'])
+                logging.info("Would refresh {0}".format(resource['url']))
             else:
                 perform_import(resource, resources_mapping)
 
